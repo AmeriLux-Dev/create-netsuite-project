@@ -25,6 +25,8 @@ const createCommand = program
     .option('--no-performance-tracker', 'Disable telemetry (the default).')
     .option('--probity', 'Add Probity guardrails for AI coding agents (probity.config.ts + Claude Code hook).')
     .option('--no-probity', 'Skip Probity (the default).')
+    .option('--jobs', 'Set up Map/Reduce jobs: the run record, the cleanup script and the endpoint a page polls.')
+    .option('--no-jobs', 'Skip the job setup (the default; `npm run add:jobs` adds it later).')
     .option('--install', 'Run npm install after scaffolding (default).')
     .option('--no-install', 'Skip npm install.')
     .option('--git', 'Initialise a git repository with a first commit (default).')

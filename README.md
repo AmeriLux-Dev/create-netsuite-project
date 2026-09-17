@@ -52,8 +52,11 @@ Every prompt has a flag, so the command works unattended:
 | Description | `--description` | a one-liner |
 | PerformanceTracker telemetry | `--performance-tracker` / `--no-performance-tracker` | off |
 | Probity guardrails for AI agents | `--probity` / `--no-probity` | off |
+| Map/Reduce jobs | `--jobs` / `--no-jobs` | off |
 | Install dependencies | `--install` / `--no-install` | yes |
 | Initialise git | `--git` / `--no-git` | yes |
+
+`--jobs` runs the project's own `npm run add:jobs` after scaffolding, which adds the record a job run lives in, the script that clears old runs daily, and the endpoint and hook a page follows a run with. Answering no leaves them out; run `npm run add:jobs` in the project the day the first job is wanted, and it adds only what is missing.
 
 `--yes` accepts every default. `--ref <gitref>`, `--repo <owner/repo>` and `--local-template <path>` control where the template comes from; by default the CLI downloads `react-app` from [netsuite-project-templates](https://github.com/AmeriLux-Dev/netsuite-project-templates) at the ref set in its own `package.json`, which is `main`, so every scaffold uses the current template. Pass `--ref <tag>` to freeze it.
 

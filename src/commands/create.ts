@@ -4,7 +4,7 @@ import path from 'node:path';
 import { defaultPrefixForProjectName, toKebabCase, toPascalCase, toTitleCase } from '../naming.js';
 import { isInteractiveTerminal, promptConfirm, promptSelect, promptText, ui } from '../prompts.js';
 import { initializeGitRepository, readGitUserName } from '../steps/git.js';
-import { installDependencies } from '../steps/install.js';
+import { addJobSupport, installDependencies } from '../steps/install.js';
 import { DEFAULT_TEMPLATE_REF, DEFAULT_TEMPLATE_REPOSITORY, downloadTemplate } from '../template/fetch.js';
 import { renderTemplateDirectory, type RenderContext } from '../template/render.js';
 import {
@@ -27,6 +27,7 @@ export interface CreateCommandOptions {
     description?: string;
     performanceTracker?: boolean;
     probity?: boolean;
+    jobs?: boolean;
     install?: boolean;
     git?: boolean;
     yes?: boolean;
@@ -46,6 +47,8 @@ export interface CreateAnswers {
     description: string;
     performanceTracker: boolean;
     probity: boolean;
+    /** True when the project starts with the job run machinery; `npm run add:jobs` adds it later otherwise. */
+    jobs: boolean;
     projectType: ProjectType;
     install: boolean;
     git: boolean;
@@ -131,6 +134,13 @@ export async function resolveCreateAnswers(options: CreateCommandOptions): Promi
             : false;
     }
 
+    let jobs = options.jobs;
+    if (jobs === undefined || (!explicit.has('jobs') && interactive)) {
+        jobs = interactive
+            ? await promptConfirm('Will this project have Map/Reduce jobs (background work a page can follow)?', false)
+            : false;
+    }
+
     let projectType: ProjectType = 'react-app';
     if (options.projectType !== undefined) {
         if (!isProjectType(options.projectType)) {
@@ -149,7 +159,7 @@ export async function resolveCreateAnswers(options: CreateCommandOptions): Promi
         ? (options.git ?? true)
         : await promptConfirm('Initialise a git repository and make the first commit?', true);
 
-    return { projectName, targetDir, prefix, author, description, performanceTracker, probity, projectType, install, git };
+    return { projectName, targetDir, prefix, author, description, performanceTracker, probity, jobs, projectType, install, git };
 }
 
 export function buildRenderContext(answers: CreateAnswers, templateRef: string, cliVersion: string): RenderContext {
@@ -230,6 +240,13 @@ export async function runCreate(options: CreateCommandOptions, cliVersion: strin
         const result = await installDependencies(answers.targetDir);
         installed = result.ok;
         if (!result.ok) ui.warn(`npm install failed. Run \`${result.manualCommand}\` in ${answers.targetDir}.`);
+    }
+
+    if (answers.jobs) {
+        ui.step('Setting up jobs (npm run add:jobs)');
+        const result = await addJobSupport(answers.targetDir);
+        if (result.ok) ui.success('Jobs are set up: the run record, the daily cleanup script, and the endpoint a page follows a run with.');
+        else ui.warn(`Job setup failed. Run \`${result.manualCommand}\` in ${answers.targetDir}.`);
     }
 
     if (answers.git) {
