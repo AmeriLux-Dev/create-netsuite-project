@@ -1,6 +1,6 @@
 {
   "name": "@amerilux/create-netsuite-project",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Scaffold a Suitelet-hosted React application for NetSuite: Vite client, webpack AMD API, one script per controller.",
   "license": "MIT",
   "type": "module",
