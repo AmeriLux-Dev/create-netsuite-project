@@ -33,7 +33,7 @@ MyApp/
   .vscode/                  VS Code snippets (nsp…) for every layer: controller, endpoint, service, repository, specifications, model, hook, SDF object
   .claude/                  Claude Code settings (and the Probity hook with --probity)
   README.md                 the application record: purpose, owners, dependencies, deployment, support, decisions
-  HOW-TO-USE.md             how to build, run, test, deploy and extend the project
+  how-to-use/               the folder structure, the naming, and worked examples of a repository, a controller and a job
   CLAUDE.md                 project brief for Claude Code
   probity.config.ts         agent guardrails (Probity), wired up in .claude/settings.json; only with --probity
 ```
@@ -64,11 +64,11 @@ Script ids are `customscript_<prefix>_<name>` and NetSuite caps them at 40 chara
 
 ## Adding a controller
 
-A controller is one deployed script with named endpoints (`orders` with `list`, `byId`, `create`): one controller file holding the request and response shapes, the endpoints and the script declaration, plus its SDF object; `npm run generate` writes the client module from it. The generated project walks through the pieces step by step in HOW-TO-USE.md (adding a controller, an endpoint, a model, a page, a helper script running as another role), ships VS Code snippets that emit each file in that shape, and its `npm run lint` runs a structure check that fails until every piece exists and they agree (ids, transport, endpoint names). The `user` and `userRoles` controllers are the reference.
+A controller is one deployed script with named endpoints (`orders` with `list`, `byId`, `create`): one controller file holding the request and response shapes, the endpoints and the script declaration, plus its SDF object; `npm run generate` writes the client module from it. The generated project writes one of each end to end in how-to-use/ (a model and its repository; a Restlet with its hooks and page; a Suitelet running as another role and one answering a file; a Map/Reduce job a page follows), ships VS Code snippets that emit each file in that shape, and its `npm run lint` runs a structure check that fails until every piece exists and they agree (ids, transport, endpoint names). The `user` and `userRoles` controllers are the reference.
 
 ## Deploying
 
-The scaffold never deploys. The generated project starts with a `user` Restlet (GET `roles`: the caller and every role assigned to them) and the `userRoles` Suitelet it calls, deployed to run as Administrator because a Restlet caller's role cannot read role assignments. When the account is set up:
+The scaffold never deploys. The generated project starts with a `user` Restlet (its `roles` endpoint: the caller and every role assigned to them) and the `userRoles` Suitelet it calls, deployed to run as Administrator because a Restlet caller's role cannot read role assignments. When the account is set up:
 
 ```sh
 npx suitecloud account:setup   # once per account; writes the gitignored project.json
