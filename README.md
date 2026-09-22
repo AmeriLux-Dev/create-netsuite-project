@@ -31,7 +31,7 @@ MyApp/
   scripts/deploy.mjs        build → suitecloud project:deploy (or file:upload only)
   scripts/checkStructure.mjs run by npm run lint: every script's pieces (declaration, exports, SDF object) agree
   .vscode/                  VS Code snippets (nsp…) for every layer: controller, endpoint, service, repository, specifications, model, hook, SDF object
-  .claude/                  Claude Code settings (and the Probity hook with --probity)
+  .claude/                  Claude Code settings, per-folder rules, and hooks: a check of every file the agent writes, and guardrails (Probity with --probity)
   README.md                 the application record: purpose, owners, dependencies, deployment, support, decisions
   how-to-use/               the folder structure, the naming, and worked examples of a repository, a controller and a job
   CLAUDE.md                 project brief for Claude Code
