@@ -21,6 +21,7 @@ MyApp/
   api/src/repositories/     query and write functions over dbContext; generated/ comes from `npm run generate`
   api/src/specifications/   query predicates, one module per record type
   api/src/models/           decorated record models; each declares its record type and field ids
+  api/src/lib/              plain helpers any layer may call; they import only other lib/ files (errors.ts to start)
   api/src/types/            models.gen.ts (generated entity types)
   api/src/scripts.gen.ts    generated from the controllers: every script by name, for createSuiteletClient
   api/src/_host/            boilerplate: the Suitelet that serves the SPA; nothing is added there
