@@ -17,7 +17,7 @@ MyApp/
   netsuite.ts               app names and any id no controller or model owns; imported by both api/ and client/
   netsuite-api.config.json  where the generator reads the controllers and writes the generated files (the defaults)
   api/src/controllers/      one file per controller: shapes, endpoints and the Restlet or Suitelet entry point declaring the script's ids (userController.ts and userRolesController.ts to start)
-  api/src/services/         decisions: interpret the request, call repositories, shape the reply (<subject>Service.ts)
+  api/src/services/         decisions, one per domain: a record type with its lines and child records, or an outside party (<domain>Service.ts)
   api/src/repositories/     query and write functions over dbContext; generated/ comes from `npm run generate`
   api/src/specifications/   query predicates, one module per record type
   api/src/models/           decorated record models; each declares its record type and field ids
@@ -32,7 +32,7 @@ MyApp/
   scripts/deploy.mjs        build → suitecloud project:deploy (or file:upload only)
   scripts/checkStructure.mjs run by npm run lint: every script's pieces (declaration, exports, SDF object) agree
   .vscode/                  VS Code snippets (nsp…) for every layer: controller, endpoint, service, repository, specifications, model, hook, SDF object
-  .claude/                  Claude Code settings, per-folder rules, and hooks: a check of every file the agent writes, and guardrails (Probity with --probity)
+  .claude/                  Claude Code settings, per-folder rules, a skill for converting an existing project, and hooks: a check of every file the agent writes, and guardrails (Probity with --probity)
   README.md                 the application record: purpose, owners, dependencies, deployment, support, decisions
   how-to-use/               the folder structure, the naming, and worked examples of a repository, a controller and a job
   CLAUDE.md                 project brief for Claude Code
