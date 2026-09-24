@@ -18,7 +18,7 @@ export const RENAMED_FILES: Record<string, string> = {
 };
 
 export const SUBSTITUTED_EXTENSIONS = new Set([
-    '.ts', '.tsx', '.js', '.cjs', '.mjs', '.json', '.html', '.xml', '.md', '.css',
+    '.ts', '.tsx', '.mts', '.cts', '.js', '.cjs', '.mjs', '.json', '.html', '.xml', '.md', '.css',
     '.yml', '.yaml', '.txt', '.example', '.code-snippets',
 ]);
 
@@ -172,11 +172,18 @@ export interface RenderDirectoryOptions {
  * Optional `template.json` at the template root. It is never copied to the project.
  * `conditionalPaths` maps a template-relative POSIX path (file or directory) to the flag
  * that must be true for it to be emitted; prefix the flag with `!` to require false.
+ * `derivedFlags` names a flag the template computes from the CLI's own: `{ "all": [...] }` is
+ * true when every listed flag is, `{ "any": [...] }` when at least one is. A derived flag works
+ * wherever a CLI flag does (blocks and conditionalPaths), so the template, not the CLI, decides
+ * how its features combine.
  */
 export const TEMPLATE_MANIFEST_FILE = 'template.json';
 
+export type DerivedFlagRule = { all: string[] } | { any: string[] };
+
 export interface TemplateManifest {
     conditionalPaths?: Record<string, string>;
+    derivedFlags?: Record<string, DerivedFlagRule>;
 }
 
 async function readTemplateManifest(sourceDir: string): Promise<TemplateManifest> {
@@ -193,7 +200,33 @@ async function readTemplateManifest(sourceDir: string): Promise<TemplateManifest
             throw new TemplateRenderError(`conditionalPaths["${conditionalPath}"] must name a flag, optionally prefixed with "!"`, TEMPLATE_MANIFEST_FILE);
         }
     }
+    for (const [derivedFlag, rule] of Object.entries(manifest.derivedFlags ?? {})) {
+        const ruleEntries: [string, unknown][] = typeof rule === 'object' && rule !== null ? Object.entries(rule) : [];
+        const [kind, listedFlags] = ruleEntries[0] ?? [];
+        const validKind = kind === 'all' || kind === 'any';
+        if (ruleEntries.length !== 1 || !validKind || !Array.isArray(listedFlags) || listedFlags.length === 0 || !listedFlags.every((flag) => typeof flag === 'string')) {
+            throw new TemplateRenderError(`derivedFlags["${derivedFlag}"] must be { "all": [flags] } or { "any": [flags] }`, TEMPLATE_MANIFEST_FILE);
+        }
+    }
     return manifest;
+}
+
+/** The CLI's flags plus the template's derived ones; a derived flag is computed from the CLI's flags only. */
+export function applyDerivedFlags(manifest: TemplateManifest, flags: Record<string, boolean>): Record<string, boolean> {
+    const combined = { ...flags };
+    for (const [derivedFlag, rule] of Object.entries(manifest.derivedFlags ?? {})) {
+        if (derivedFlag in flags) {
+            throw new TemplateRenderError(`derivedFlags["${derivedFlag}"] redefines a flag the CLI already sets`, TEMPLATE_MANIFEST_FILE);
+        }
+        const listedFlags = 'all' in rule ? rule.all : rule.any;
+        for (const flag of listedFlags) {
+            if (!(flag in flags)) {
+                throw new TemplateRenderError(`derivedFlags["${derivedFlag}"] refers to unknown flag "${flag}"`, TEMPLATE_MANIFEST_FILE);
+            }
+        }
+        combined[derivedFlag] = 'all' in rule ? listedFlags.every((flag) => flags[flag]) : listedFlags.some((flag) => flags[flag]);
+    }
+    return combined;
 }
 
 /** True when the manifest condition for this template-relative path (or any parent directory) says to skip it. */
@@ -225,6 +258,7 @@ export async function renderTemplateDirectory(
 ): Promise<string[]> {
     const skipDirectories = options.skipDirectories ?? new Set(['node_modules']);
     const manifest = await readTemplateManifest(sourceDir);
+    const renderContext: RenderContext = { ...context, flags: applyDerivedFlags(manifest, context.flags) };
     const written: string[] = [];
 
     async function walk(currentSource: string, currentTarget: string, relativePrefix: string, templatePrefix: string): Promise<void> {
@@ -234,9 +268,9 @@ export async function renderTemplateDirectory(
             const sourcePath = path.join(currentSource, entry.name);
             const templateRelativePath = templatePrefix ? `${templatePrefix}/${entry.name}` : entry.name;
             if (templateRelativePath === TEMPLATE_MANIFEST_FILE) continue;
-            if (isPathExcludedByManifest(templateRelativePath, manifest, context.flags)) continue;
+            if (isPathExcludedByManifest(templateRelativePath, manifest, renderContext.flags)) continue;
 
-            const renderedName = renderTemplateFileName(entry.name, context);
+            const renderedName = renderTemplateFileName(entry.name, renderContext);
             const targetPath = path.join(currentTarget, renderedName);
             const relativePath = relativePrefix ? `${relativePrefix}/${renderedName}` : renderedName;
 
@@ -249,7 +283,7 @@ export async function renderTemplateDirectory(
 
             if (isSubstitutedFile(entry.name)) {
                 const source = await fs.readFile(sourcePath, 'utf8');
-                const rendered = renderTemplateString(source, context, relativePath);
+                const rendered = renderTemplateString(source, renderContext, relativePath);
                 await fs.writeFile(targetPath, rendered, 'utf8');
             } else {
                 await fs.copyFile(sourcePath, targetPath);

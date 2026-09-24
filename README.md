@@ -53,9 +53,13 @@ Every prompt has a flag, so the command works unattended:
 | Description | `--description` | a one-liner |
 | PerformanceTracker telemetry | `--performance-tracker` / `--no-performance-tracker` | off |
 | Probity guardrails for AI agents | `--probity` / `--no-probity` | off |
+| Controllers on `@amerilux/netsuite-api` | `--netsuite-api` / `--no-netsuite-api` | yes |
+| Data access on `@amerilux/netsuite-repository` | `--netsuite-repository` / `--no-netsuite-repository` | yes |
 | Map/Reduce jobs | `--jobs` / `--no-jobs` | off |
 | Install dependencies | `--install` / `--no-install` | yes |
 | Initialise git | `--git` / `--no-git` | yes |
+
+`--no-netsuite-api` and `--no-netsuite-repository` leave a package out along with everything built on it: the project keeps the folders (`api/src/controllers`, `client/src/hooks`, `api/src/repositories` and the rest) and the host page, and the code that goes in them is the developer's. The `user`/`userRoles` example needs both packages, so it is only there when both are. The job setup is built on netsuite-api, so `--jobs` needs it.
 
 `--jobs` runs the project's own `npm run add:jobs` after scaffolding, which adds the record a job run lives in, the script that clears old runs daily, and the endpoint and hook a page follows a run with. Answering no leaves them out; run `npm run add:jobs` in the project the day the first job is wanted, and it adds only what is missing.
 
@@ -69,12 +73,12 @@ A controller is one deployed script with named endpoints (`orders` with `list`, 
 
 ## Deploying
 
-The scaffold never deploys. The generated project starts with a `user` Restlet (its `roles` endpoint: the caller and every role assigned to them) and the `userRoles` Suitelet it calls, deployed to run as Administrator because a Restlet caller's role cannot read role assignments. When the account is set up:
+The scaffold never deploys. With both packages on, the generated project starts with a `user` Restlet (its `roles` endpoint: the caller and every role assigned to them) and the `userRoles` Suitelet it calls, deployed to run as Administrator because a Restlet caller's role cannot read role assignments. When the account is set up:
 
 ```sh
 npx suitecloud account:setup   # once per account; writes the gitignored project.json
-npm run deploy                 # build, project:adddependencies, project:deploy
-npm run deploy:files           # build, then upload only File Cabinet files
+npm run deploy:full            # build, project:adddependencies, project:deploy: the first time, and after an SDF object changes
+npm run deploy                 # build, then upload only File Cabinet files
 ```
 
 The client bundle URL carries the version and a build id, so a new deploy is picked up without a manual cache bust.

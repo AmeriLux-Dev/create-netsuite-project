@@ -27,6 +27,8 @@ export interface CreateCommandOptions {
     description?: string;
     performanceTracker?: boolean;
     probity?: boolean;
+    netsuiteApi?: boolean;
+    netsuiteRepository?: boolean;
     jobs?: boolean;
     install?: boolean;
     git?: boolean;
@@ -47,7 +49,11 @@ export interface CreateAnswers {
     description: string;
     performanceTracker: boolean;
     probity: boolean;
-    /** True when the project starts with the job run machinery; `npm run add:jobs` adds it later otherwise. */
+    /** True when controllers and the client are built on @amerilux/netsuite-api; otherwise their folders are left empty. */
+    netsuiteApi: boolean;
+    /** True when data access is built on @amerilux/netsuite-repository; otherwise the repository folder is left empty. */
+    netsuiteRepository: boolean;
+    /** True when the project starts with the job run machinery; `npm run add:jobs` adds it later otherwise. Needs netsuiteApi. */
     jobs: boolean;
     projectType: ProjectType;
     install: boolean;
@@ -134,8 +140,28 @@ export async function resolveCreateAnswers(options: CreateCommandOptions): Promi
             : false;
     }
 
+    let netsuiteApi = options.netsuiteApi;
+    if (netsuiteApi === undefined || (!explicit.has('netsuiteApi') && interactive)) {
+        netsuiteApi = interactive
+            ? await promptConfirm('Build controllers on @amerilux/netsuite-api (typed endpoints, generated client)?', true)
+            : true;
+    }
+
+    let netsuiteRepository = options.netsuiteRepository;
+    if (netsuiteRepository === undefined || (!explicit.has('netsuiteRepository') && interactive)) {
+        netsuiteRepository = interactive
+            ? await promptConfirm('Build data access on @amerilux/netsuite-repository (models, generated query context)?', true)
+            : true;
+    }
+
+    // The job setup (run record, stage builders, the endpoint a page polls) is built on netsuite-api.
     let jobs = options.jobs;
-    if (jobs === undefined || (!explicit.has('jobs') && interactive)) {
+    if (!netsuiteApi) {
+        if (jobs === true && explicit.has('jobs')) {
+            throw new CreateCommandError('--jobs needs @amerilux/netsuite-api: the job setup is built on it. Drop --jobs or --no-netsuite-api.');
+        }
+        jobs = false;
+    } else if (jobs === undefined || (!explicit.has('jobs') && interactive)) {
         jobs = interactive
             ? await promptConfirm('Will this project have Map/Reduce jobs (background work a page can follow)?', false)
             : false;
@@ -159,7 +185,7 @@ export async function resolveCreateAnswers(options: CreateCommandOptions): Promi
         ? (options.git ?? true)
         : await promptConfirm('Initialise a git repository and make the first commit?', true);
 
-    return { projectName, targetDir, prefix, author, description, performanceTracker, probity, jobs, projectType, install, git };
+    return { projectName, targetDir, prefix, author, description, performanceTracker, probity, netsuiteApi, netsuiteRepository, jobs, projectType, install, git };
 }
 
 export function buildRenderContext(answers: CreateAnswers, templateRef: string, cliVersion: string): RenderContext {
@@ -179,10 +205,14 @@ export function buildRenderContext(answers: CreateAnswers, templateRef: string, 
             // JSON literals for .netsuite-project.json, where a token sits outside a string.
             performanceTrackerJson: String(answers.performanceTracker),
             probityJson: String(answers.probity),
+            netsuiteApiJson: String(answers.netsuiteApi),
+            netsuiteRepositoryJson: String(answers.netsuiteRepository),
         },
         flags: {
             performanceTracker: answers.performanceTracker,
             probity: answers.probity,
+            netsuiteApi: answers.netsuiteApi,
+            netsuiteRepository: answers.netsuiteRepository,
         },
     };
 }
@@ -265,12 +295,13 @@ export async function runCreate(options: CreateCommandOptions, cliVersion: strin
         'cp client/.env.example client/.env   # then fill in the sandbox OAuth 2.0 values',
         'npm run dev                          # Vite + local restlet proxy',
         '',
-        'The user controller and its page are the starting point; how-to-use/ lays out the',
-        'folders and writes a repository, a controller and a job end to end.',
+        'Start with how-to-use/folder-structure.md: the folders each layer lives in and what',
+        'goes in them.',
         '',
         'npx suitecloud account:setup         # once per account, writes the gitignored project.json',
-        'npm run deploy                       # build, then suitecloud project:deploy',
+        'npm run deploy:full                  # build, then suitecloud project:deploy',
         `The Suitelet then appears under Customization › Scripting › Scripts as "${toTitleCase(answers.projectName)} Home"`,
+        'npm run deploy                       # later: the File Cabinet files only',
     ];
     ui.note(nextSteps.join('\n'), 'Next steps');
     ui.outro(`${appName} is ready.`);

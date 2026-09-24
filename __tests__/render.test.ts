@@ -85,6 +85,7 @@ describe('renderTemplateFileName', () => {
 describe('isSubstitutedFile', () => {
     it('renders text sources and copies everything else byte for byte', () => {
         expect(isSubstitutedFile('a.ts')).toBe(true);
+        expect(isSubstitutedFile('vitest.config.mts')).toBe(true);
         expect(isSubstitutedFile('a.xml')).toBe(true);
         expect(isSubstitutedFile('.env.example')).toBe(true);
         expect(isSubstitutedFile('netsuite-project.code-snippets')).toBe(true);
@@ -148,5 +149,47 @@ describe('renderTemplateDirectory', () => {
         expect(writtenWithout).toEqual(['always.md', 'plain.md']);
 
         await expect(renderTemplateDirectory(source, path.join(root, 'bad'), { tokens: {}, flags: {} })).rejects.toThrow(/unknown flag/);
+    });
+
+    it('computes template.json derived flags for blocks and conditional paths', async () => {
+        const root = await fs.mkdtemp(path.join(os.tmpdir(), 'render-derived-'));
+        scratchDirs.push(root);
+        const source = path.join(root, 'template');
+        await fs.mkdir(source, { recursive: true });
+        await fs.writeFile(path.join(source, 'template.json'), JSON.stringify({
+            derivedFlags: { both: { all: ['first', 'second'] }, either: { any: ['first', 'second'] } },
+            conditionalPaths: { 'example.ts': 'both', 'placeholder.ts': '!both' },
+        }));
+        await fs.writeFile(path.join(source, 'example.ts'), 'export {};');
+        await fs.writeFile(path.join(source, 'placeholder.ts'), 'export {};');
+        await fs.writeFile(path.join(source, 'readme.md'), '{{#if either}}generate{{/if}}{{#unless either}}nothing{{/unless}}');
+
+        const bothOn = path.join(root, 'both-on');
+        expect(await renderTemplateDirectory(source, bothOn, { tokens: {}, flags: { first: true, second: true } })).toEqual(['example.ts', 'readme.md']);
+        expect(await fs.readFile(path.join(bothOn, 'readme.md'), 'utf8')).toBe('generate');
+
+        const oneOn = path.join(root, 'one-on');
+        expect(await renderTemplateDirectory(source, oneOn, { tokens: {}, flags: { first: false, second: true } })).toEqual(['placeholder.ts', 'readme.md']);
+        expect(await fs.readFile(path.join(oneOn, 'readme.md'), 'utf8')).toBe('generate');
+
+        const noneOn = path.join(root, 'none-on');
+        await renderTemplateDirectory(source, noneOn, { tokens: {}, flags: { first: false, second: false } });
+        expect(await fs.readFile(path.join(noneOn, 'readme.md'), 'utf8')).toBe('nothing');
+    });
+
+    it('rejects a derived flag that is malformed, names an unknown flag or shadows a CLI flag', async () => {
+        const root = await fs.mkdtemp(path.join(os.tmpdir(), 'render-derived-bad-'));
+        scratchDirs.push(root);
+        const renderWithManifest = async (name: string, manifest: unknown, flags: Record<string, boolean>) => {
+            const source = path.join(root, name);
+            await fs.mkdir(source, { recursive: true });
+            await fs.writeFile(path.join(source, 'template.json'), JSON.stringify(manifest));
+            return renderTemplateDirectory(source, path.join(root, `${name}-out`), { tokens: {}, flags });
+        };
+
+        await expect(renderWithManifest('shape', { derivedFlags: { both: { every: ['first'] } } }, { first: true })).rejects.toThrow(/must be \{ "all"/);
+        await expect(renderWithManifest('empty', { derivedFlags: { both: { all: [] } } }, { first: true })).rejects.toThrow(/must be \{ "all"/);
+        await expect(renderWithManifest('unknown', { derivedFlags: { both: { all: ['first', 'missing'] } } }, { first: true })).rejects.toThrow(/unknown flag "missing"/);
+        await expect(renderWithManifest('shadow', { derivedFlags: { first: { any: ['second'] } } }, { first: true, second: false })).rejects.toThrow(/redefines a flag/);
     });
 });
